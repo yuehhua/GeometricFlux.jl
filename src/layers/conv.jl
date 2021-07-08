@@ -485,3 +485,44 @@ function Base.show(io::IO, l::EdgeConv)
     print(io, ", aggr=", l.aggr)
     print(io, ")")
 end
+
+
+"""
+    GINConv([graph, ] nn, eps, train_eps
+"""
+
+struct GINConv{V<:AbstractFeaturedGraph,R<:Real} <: MessagePassing
+    fg::V
+    nn
+    eps::R
+    train_eps::Bool
+end
+
+function GINConv(adj::AbstractMatrix, nn, eps, train_eps)
+    fg = FeaturedGraph(adj)
+    GINConv(fg, nn, eps, train_eps)
+end
+
+function GINConv(nn, eps, train_eps)
+    GINConv(NullGraph(), nn, eps, train_eps)
+end
+
+message(g::GINConv, x_i::AbstractVector, x_j::AbstractVector) = x_j 
+update(g::GINConv, m::AbstractVector, x) = g.nn((1.0 + g.eps) * x + m)
+
+@functor GINConv
+
+function(g::GINConv)(X::AbstractMatrix)
+    fg = FeaturedGraph(graph(g.fg), nf=X)
+    Zygote.ignore() do
+        GraphSignals.check_num_node(graph(g.fg), X)
+    end
+    propagate(g, fg, :add)
+end
+
+function(g::GINConv)(fg::FeaturedGraph)
+    Zygote.ignore() do
+        GraphSignals.check_num_node(graph(fg), node_feature(fg))
+    end
+    propagate(g, fg, :add)
+end

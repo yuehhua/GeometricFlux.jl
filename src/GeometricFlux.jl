@@ -42,6 +42,7 @@ export
     GATConv,
     GatedGraphConv,
     EdgeConv,
+    GINConv,
     message,
     update,
     propagate,
